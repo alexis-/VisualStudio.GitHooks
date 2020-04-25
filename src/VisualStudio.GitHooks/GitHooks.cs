@@ -51,7 +51,7 @@ namespace VisualStudio.GitHooks
 
     #region Methods
 
-    public static DirectoryInfo FindGitRoot(this EnvDTE.DTE dte)
+    public static DirectoryInfo FindGitRoot(this EnvDTE80.DTE2 dte)
     {
       Microsoft.VisualStudio.Shell.ThreadHelper.ThrowIfNotOnUIThread();
       dte.ThrowIfArgumentNull(nameof(dte));
@@ -61,6 +61,7 @@ namespace VisualStudio.GitHooks
       sol.ThrowIfNull("DTE.Solution is null");
       sol.FullName.ThrowIfNullOrWhitespace("DTE.Solution.FullName (path) is empty or null");
 
+      // ReSharper disable once AssignNullToNotNullAttribute
       var solDir = new DirectoryInfo(Path.GetDirectoryName(sol.FullName));
 
       solDir.ThrowIfMissing($"Solution '{sol.FullName}' doesn't exist.");
@@ -73,6 +74,8 @@ namespace VisualStudio.GitHooks
       bool               throwIfMissing = false,
       CancellationToken  cs             = default)
     {
+      gitRoot.ThrowIfArgumentNull(nameof(gitRoot));
+
       // Validate paths
       if (gitRoot.Contains(GitRootName) == false)
         throw new ArgumentException($"The directory '{gitRoot.FullName}' is not the root of a git repository.");

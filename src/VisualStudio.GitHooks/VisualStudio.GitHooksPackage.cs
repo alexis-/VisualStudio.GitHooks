@@ -21,7 +21,8 @@
 // DEALINGS IN THE SOFTWARE.
 // 
 // 
-// Modified On:  2020/04/04 18:42
+// Created On:   2020/04/04 17:33
+// Modified On:  2020/04/11 15:30
 // Modified By:  Alexis
 
 #endregion
@@ -35,8 +36,12 @@ namespace VisualStudio.GitHooks
   using System.Runtime.InteropServices;
   using System.Threading;
   using EnvDTE;
+  using EnvDTE80;
+  using Microsoft.Build.Framework;
   using Microsoft.VisualStudio;
   using Microsoft.VisualStudio.Shell;
+  using Microsoft.VisualStudio.Shell.Interop;
+  using Utils;
   using Task = System.Threading.Tasks.Task;
 
   /// <summary>This is the class that implements the package exposed by this assembly.</summary>
@@ -60,7 +65,7 @@ namespace VisualStudio.GitHooks
   [ProvideAutoLoad(VSConstants.UICONTEXT.SolutionExists_string, PackageAutoLoadFlags.BackgroundLoad)]
   [ProvideAutoLoad(VSConstants.UICONTEXT.SolutionHasMultipleProjects_string, PackageAutoLoadFlags.BackgroundLoad)]
   [ProvideAutoLoad(VSConstants.UICONTEXT.SolutionHasSingleProject_string, PackageAutoLoadFlags.BackgroundLoad)]
-  public sealed class GitHooksPackage : AsyncPackage
+  public sealed class GitHooksPackage : AsyncPackage, IVsOutputWindowWriter
   {
     #region Constants & Statics
 
@@ -72,33 +77,68 @@ namespace VisualStudio.GitHooks
 
 
 
+    #region Properties Impl - Public
+
+    /// <inheritdoc />
+    public DTE2 Dte2 { get; private set; }
+
+    /// <inheritdoc />
+    public IVsOutputWindowPane OutputWindowPane { get; set; }
+
+    /// <inheritdoc />
+    public OutputWindowPane OutputWindowPane2 { get; set; }
+
+    /// <inheritdoc />
+    public LoggerVerbosity CurrentBuildVerbosity { get; set; }
+
+    #endregion
+
+
+
+
     #region Methods Impl
 
     /// <summary>
-    ///   Initialization of the package; this method is called right after the package is
+    /// Initialization of the package; this method is called right after the package is
     ///   sited, so this is the place where you can put all the initialization code that rely on
     ///   services provided by VisualStudio.
     /// </summary>
     /// <param name="cancellationToken">
-    ///   A cancellation token to monitor for initialization
+    /// A cancellation token to monitor for initialization
     ///   cancellation, which can occur when VS is shutting down.
     /// </param>
-    /// <param name="progress">A provider for progress updates.</param>
+    /// <param name="progress">
+    /// A provider for progress updates.
+    /// </param>
     /// <returns>
-    ///   A task representing the async work of package initialization, or an already completed
+    /// A task representing the async work of package initialization, or an already completed
     ///   task if there is none. Do not return null from this method.
     /// </returns>
+    [System.Diagnostics.CodeAnalysis.SuppressMessage("Design", "CA1031:Do not catch general exception types", Justification = "<Pending>")]
     protected override async Task InitializeAsync(CancellationToken cancellationToken, IProgress<ServiceProgressData> progress)
     {
       // When initialized asynchronously, the current thread may be a background thread at this point.
       // Do any initialization that requires the UI thread after switching to the UI thread.
       await JoinableTaskFactory.SwitchToMainThreadAsync(cancellationToken);
 
-      var dte2 = GetGlobalService(typeof(DTE)) as DTE;
+      try
+      {
+        Dte2 = GetGlobalService(typeof(DTE)) as DTE2;
 
-      var gitRootDir = dte2.FindGitRoot();
+        var gitRootDir = Dte2.FindGitRoot();
 
-      gitRootDir?.ApplyGitHooks(false, cancellationToken);
+        gitRootDir?.ApplyGitHooks(false, cancellationToken);
+      }
+      catch (Exception ex)
+      {
+        await this.WriteErrorAsync("An unknown exception occured in InitializeAsync: {0}", ex).ConfigureAwait(false);
+      }
+    }
+
+    /// <inheritdoc />
+    public object GetServiceSync(Type serviceType)
+    {
+      throw new NotImplementedException();
     }
 
     #endregion
